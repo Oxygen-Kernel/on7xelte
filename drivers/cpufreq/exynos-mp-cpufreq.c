@@ -1730,6 +1730,10 @@ static int exynos_cluster0_min_qos_handler(struct notifier_block *b,
 	threshold_freq = cpufreq_interactive_get_hispeed_freq(0);
 	if (!threshold_freq)
 		threshold_freq = 1000000;	/* 1.0GHz */
+#elif defined(CONFIG_CPU_FREQ_GOV_CAFACTIVE)
+	threshold_freq = cpufreq_cafactive_get_hispeed_freq(0);
+	if (!threshold_freq)
+		threshold_freq = 1000000;	/* 1.0GHz */
 #else
 	threshold_freq = 1000000;	/* 1.0GHz */
 #endif
