@@ -211,6 +211,14 @@ config DM_BUFIO
 	 as a cache, holding recently-read blocks in memory and performing
 	 delayed writes.
 
+config DM_DEBUG_BLOCK_MANAGER_LOCKING
+       bool "Block manager locking"
+       depends on DM_BUFIO
+       ---help---
+	 Block manager locking can catch various metadata corruption issues.
+
+	 If unsure, say N.
+
 config DM_BIO_PRISON
        tristate
        depends on BLK_DEV_DM
