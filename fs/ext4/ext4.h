@@ -1610,6 +1610,12 @@ static inline void ext4_clear_state_flags(struct ext4_inode_info *ei)
  * Superblock flags
  */
 #define EXT4_FLAGS_RESIZING	0
+#define EXT4_FLAGS_SHUTDOWN	1
+
+static inline int ext4_forced_shutdown(struct ext4_sb_info *sbi)
+{
+	return test_bit(EXT4_FLAGS_SHUTDOWN, &sbi->s_ext4_flags);
+}
 
 
 /*
