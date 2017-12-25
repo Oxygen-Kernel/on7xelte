@@ -2517,7 +2517,7 @@ SYSCALL_DEFINE2(swapon, const char __user *, specialfile, int, swap_flags)
 		goto bad_swap;
 	}
 	/* frontswap enabled? set up bit-per-page map for frontswap */
-	if (IS_ENABLED(CONFIG_FRONTSWAP))
+	if (frontswap_enabled)
 		frontswap_map = vzalloc(BITS_TO_LONGS(maxpages) * sizeof(long));
 
 	if (p->bdev &&(swap_flags & SWAP_FLAG_DISCARD) && swap_discardable(p)) {

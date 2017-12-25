@@ -196,7 +196,7 @@ static void selfballoon_process(struct work_struct *work)
 				MB2PAGES(selfballoon_reserved_mb);
 #ifdef CONFIG_FRONTSWAP
 		/* allow space for frontswap pages to be repatriated */
-		if (frontswap_selfshrinking)
+		if (frontswap_selfshrinking && frontswap_enabled)
 			goal_pages += frontswap_curr_pages();
 #endif
 		if (cur_pages > goal_pages)
@@ -231,7 +231,7 @@ static void selfballoon_process(struct work_struct *work)
 		reset_timer = true;
 	}
 #ifdef CONFIG_FRONTSWAP
-	if (frontswap_selfshrinking) {
+	if (frontswap_selfshrinking && frontswap_enabled) {
 		frontswap_selfshrink();
 		reset_timer = true;
 	}
