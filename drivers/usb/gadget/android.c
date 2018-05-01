@@ -35,7 +35,7 @@
 
 #include "gadget_chips.h"
 
-#include "../function/u_fs.h"
+#include "../function/f_fs.c"
 #include "../function/f_audio_source.c"
 #include "../function/f_midi.c"
 #include "../function/f_mass_storage.c"
@@ -51,9 +51,7 @@
 #include "../function/rndis.c"
 #include "../function/f_dm.c"
 #include "../function/u_ether.c"
-#include "../function/f_hid.h"
-#include "../function/f_hid_android_keyboard.c"
-#include "../function/f_hid_android_mouse.c"
+
 
 MODULE_AUTHOR("Mike Lockwood");
 MODULE_DESCRIPTION("Android Composite USB Driver");
@@ -168,7 +166,9 @@ EXPORT_SYMBOL_GPL(is_rndis_use);
 void set_usb_enumeration_state(int state);
 void set_usb_enable_state(void);
 #endif
-
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_CCR_PROTOCOL
+#include "../function/u_ccr.c"
+#endif
 /* String Table */
 static struct usb_string strings_dev[] = {
 	[STRING_MANUFACTURER_IDX].s = manufacturer_string,
@@ -309,44 +309,22 @@ static void android_disable(struct android_dev *dev)
 struct functionfs_config {
 	bool opened;
 	bool enabled;
-	struct usb_function *func;
-	struct usb_function_instance *fi;
 	struct ffs_data *data;
 };
-
-static int functionfs_ready_callback(struct ffs_data *ffs);
-static void functionfs_closed_callback(struct ffs_data *ffs);
 
 static int ffs_function_init(struct android_usb_function *f,
 			     struct usb_composite_dev *cdev)
 {
-	struct functionfs_config *config;
-	struct f_fs_opts *opts;
-
 	f->config = kzalloc(sizeof(struct functionfs_config), GFP_KERNEL);
 	if (!f->config)
 		return -ENOMEM;
 
-	config = f->config;
-
-	config->fi = usb_get_function_instance("ffs");
-	if (IS_ERR(config->fi))
-		return PTR_ERR(config->fi);
-
-	opts = to_f_fs_opts(config->fi);
-	opts->dev->ffs_ready_callback = functionfs_ready_callback;
-	opts->dev->ffs_closed_callback = functionfs_closed_callback;
-	opts->no_configfs = true;
-
-	return ffs_single_dev(opts->dev);
+	return functionfs_init();
 }
 
 static void ffs_function_cleanup(struct android_usb_function *f)
 {
-	struct functionfs_config *config = f->config;
-	if (config)
-		usb_put_function_instance(config->fi);
-
+	functionfs_cleanup();
 	kfree(f->config);
 }
 
@@ -378,11 +356,7 @@ static int ffs_function_bind_config(struct android_usb_function *f,
 				    struct usb_configuration *c)
 {
 	struct functionfs_config *config = f->config;
-	config->func = usb_get_function(config->fi);
-	if (IS_ERR(config->func))
-		return PTR_ERR(config->func);
-
-	return usb_add_function(c, config->func);
+	return functionfs_bind_config(c->cdev, c, config->data);
 }
 
 static ssize_t
@@ -445,12 +419,17 @@ static int functionfs_ready_callback(struct ffs_data *ffs)
 
 	mutex_lock(&dev->mutex);
 
+	ret = functionfs_bind(ffs, dev->cdev);
+	if (ret)
+		goto err;
+
 	config->data = ffs;
 	config->opened = true;
 
 	if (config->enabled)
 		android_enable(dev);
 
+err:
 	mutex_unlock(&dev->mutex);
 	return ret;
 }
@@ -468,9 +447,18 @@ static void functionfs_closed_callback(struct ffs_data *ffs)
 	config->opened = false;
 	config->data = NULL;
 
-	usb_put_function(config->func);
+	functionfs_unbind(ffs);
 
 	mutex_unlock(&dev->mutex);
+}
+
+static void *functionfs_acquire_dev_callback(const char *dev_name)
+{
+	return 0;
+}
+
+static void functionfs_release_dev_callback(struct ffs_data *ffs_data)
+{
 }
 
 struct adb_data {
@@ -1472,40 +1460,6 @@ static struct android_usb_function midi_function = {
 	.attributes	= midi_function_attributes,
 };
 
-static int hid_function_init(struct android_usb_function *f, struct usb_composite_dev *cdev)
-{
-	return ghid_setup(cdev->gadget, 2);
-}
-
-static void hid_function_cleanup(struct android_usb_function *f)
-{
-	ghid_cleanup();
-}
-
-static int hid_function_bind_config(struct android_usb_function *f, struct usb_configuration *c)
-{
-	int ret;
-	printk(KERN_INFO "hid keyboard\n");
-	ret = hidg_bind_config(c, &ghid_device_android_keyboard, 0);
-	if (ret) {
-		pr_info("%s: hid_function_bind_config keyboard failed: %d\n", __func__, ret);
-		return ret;
-	}
-	printk(KERN_INFO "hid mouse\n");
-	ret = hidg_bind_config(c, &ghid_device_android_mouse, 1);
-	if (ret) {
-		pr_info("%s: hid_function_bind_config mouse failed: %d\n", __func__, ret);
-		return ret;
-	}
-	return 0;
-}
-
-static struct android_usb_function hid_function = {
-	.name		= "hid",
-	.init		= hid_function_init,
-	.cleanup	= hid_function_cleanup,
-	.bind_config	= hid_function_bind_config,
-};
 
 static struct android_usb_function *supported_functions[] = {
 	&ffs_function,
@@ -1525,7 +1479,9 @@ static struct android_usb_function *supported_functions[] = {
 	&conn_gadget_function,
 #endif
 	&midi_function,
-	&hid_function,
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_CCR_PROTOCOL
+	&ccr_function,
+#endif		
 	NULL
 };
 
@@ -1749,11 +1705,6 @@ functions_store(struct device *pdev, struct device_attribute *attr,
 
 #endif
 	}
-
-	/* Always enable HID gadget function. */
-	err = android_enable_function(dev, "hid");
-	if (err)
-		pr_err("android_usb: Cannot enable hid (%d)", err);
 
 	mutex_unlock(&dev->mutex);
 
@@ -2155,7 +2106,10 @@ android_setup(struct usb_gadget *gadget, const struct usb_ctrlrequest *c)
 	if (value < 0)
 		value = terminal_ctrl_request(cdev, c);
 #endif
-
+#ifdef CONFIG_USB_ANDROID_SAMSUNG_CCR_PROTOCOL
+	if (value < 0)
+		value = ccr_ctrl_request(cdev, c);
+#endif
 	/* Special case the accessory function.
 	 * It needs to handle control requests before it is enabled.
 	 */
