@@ -227,7 +227,7 @@
 		pinctrl-6 = <&sd0_clk_fast_slew_rate_6x>;
 		slot@0 {
 			reg = <0>;
-			bus-width = <8>;
+			bus-width = <16>;
 		};
 	};
 
