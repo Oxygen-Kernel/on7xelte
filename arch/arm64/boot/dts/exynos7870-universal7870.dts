@@ -270,7 +270,7 @@
 		cd-gpio = <&gpa0 1 0xf>;
 		slot@0 {
 			reg = <0>;
-			bus-width = <4>;
+			bus-width = <8>;
 			disable-wp;
 		};
 	};
