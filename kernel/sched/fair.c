@@ -64,8 +64,8 @@
 unsigned int sysctl_sched_latency = 3000000ULL;
 unsigned int normalized_sysctl_sched_latency = 3000000ULL;
 #else
-unsigned int sysctl_sched_latency = 6000000ULL;
-unsigned int normalized_sysctl_sched_latency = 6000000ULL;
+unsigned int sysctl_sched_latency =  4000000ULL; /* 4ms */
+unsigned int normalized_sysctl_sched_latency = 4000000ULL; /* 4ms */
 #endif
 
 /*
