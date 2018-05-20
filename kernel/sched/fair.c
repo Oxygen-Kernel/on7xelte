@@ -88,8 +88,8 @@ enum sched_tunable_scaling sysctl_sched_tunable_scaling
 unsigned int sysctl_sched_min_granularity = 300000ULL;
 unsigned int normalized_sysctl_sched_min_granularity = 300000ULL;
 #else
-unsigned int sysctl_sched_min_granularity = 750000ULL;
-unsigned int normalized_sysctl_sched_min_granularity = 750000ULL;
+unsigned int sysctl_sched_min_granularity = 550000ULL; /* 0.55 msec */
+unsigned int normalized_sysctl_sched_min_granularity = 550000ULL; /* 0.55 msec */
 #endif
 
 /*
