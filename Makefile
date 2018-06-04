@@ -654,6 +654,8 @@ else
 KBUILD_CFLAGS	+= -O2 -finline-functions -Wno-maybe-uninitialized
 endif
 
+KBUILD_CFLAGS	+= $(call cc-option,-fsanitize=local-init)
+
 KBUILD_CFLAGS 	+= $(call cc-disable-warning,maybe-uninitialized,) \
 		   $(call cc-disable-warning,unused-variable,) \
 		   $(call cc-disable-warning,unused-function)
