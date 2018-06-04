@@ -407,8 +407,8 @@ void kernfs_put(struct kernfs_node *kn)
 
 	if (kernfs_type(kn) == KERNFS_LINK)
 		kernfs_put(kn->symlink.target_kn);
-	kfree_const(kn->name);
-
+	if (!(kn->flags & KERNFS_STATIC_NAME))
+		kfree(kn->name);
 	if (kn->iattr) {
 		if (kn->iattr->ia_secdata)
 			security_release_secctx(kn->iattr->ia_secdata,
@@ -502,12 +502,15 @@ static struct kernfs_node *__kernfs_new_node(struct kernfs_root *root,
 					     const char *name, umode_t mode,
 					     unsigned flags)
 {
+	char *dup_name = NULL;
 	struct kernfs_node *kn;
 	int ret;
 
-	name = kstrdup_const(name, GFP_KERNEL);
-	if (!name)
-		return NULL;
+	if (!(flags & KERNFS_STATIC_NAME)) {
+		name = dup_name = kstrdup(name, GFP_KERNEL);
+		if (!name)
+			return NULL;
+	}
 
 	kn = kmem_cache_zalloc(kernfs_node_cache, GFP_KERNEL);
 	if (!kn)
@@ -531,7 +534,7 @@ static struct kernfs_node *__kernfs_new_node(struct kernfs_root *root,
  err_out2:
 	kmem_cache_free(kernfs_node_cache, kn);
  err_out1:
-	kfree_const(name);
+	kfree(dup_name);
 	return NULL;
 }
 
@@ -1278,7 +1281,9 @@ int kernfs_rename_ns(struct kernfs_node *kn, struct kernfs_node *new_parent,
 
 	kn->ns = new_ns;
 	if (new_name) {
-		old_name = kn->name;
+		if (!(kn->flags & KERNFS_STATIC_NAME))
+			old_name = kn->name;
+		kn->flags &= ~KERNFS_STATIC_NAME;
 		kn->name = new_name;
 	}
 
